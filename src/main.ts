@@ -1,17 +1,24 @@
 ///<reference path="./lib/ammo.wasm.d.ts"/>
 
 import * as THREE from "three";
-import { Quaternion, Vector3 } from "three";
+import { Camera, Quaternion, Renderer, Scene, Vector3 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 //import { DeviceOrientationControls } from "./lib/deviceOrientation";
 import "./style.css";
+
+function debug<T>(text: T) {
+  const debug = document.querySelector("#debug");
+
+  debug!.innerHTML = JSON.stringify(text ?? "NOTHING");
+  console.info(text);
+}
 
 class RigidBody {
   #transform: Ammo.btTransform;
   #shape: Ammo.btSphereShape;
   #inertia: Ammo.btVector3;
   #info: Ammo.btRigidBodyConstructionInfo;
-  motionState: Ammo.btMotionState;
+  #motionState: Ammo.btMotionState;
   body: Ammo.btRigidBody;
 
   setRestitution(rest: number) {
@@ -33,11 +40,11 @@ class RigidBody {
     this.#transform.setRotation(
       new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w)
     );
-    this.motionState = new Ammo.btDefaultMotionState(this.#transform);
+    this.#motionState = new Ammo.btDefaultMotionState(this.#transform);
 
     const btSize = new Ammo.btVector3(size.x * 0.5, size.y * 0.5, size.z * 0.5);
     this.#shape = new Ammo.btBoxShape(btSize);
-    this.#shape.setMargin(0.5);
+    this.#shape.setMargin(0.05);
 
     this.#inertia = new Ammo.btVector3(0, 0, 0);
     if (mass > 0) {
@@ -46,7 +53,7 @@ class RigidBody {
 
     this.#info = new Ammo.btRigidBodyConstructionInfo(
       mass,
-      this.motionState,
+      this.#motionState,
       this.#shape,
       this.#inertia
     );
@@ -60,10 +67,10 @@ class RigidBody {
     this.#transform.setIdentity();
     this.#transform.setOrigin(new Ammo.btVector3(pos.x, pos.y, pos.z));
     this.#transform.setRotation(new Ammo.btQuaternion(0, 0, 0, 1));
-    this.motionState = new Ammo.btDefaultMotionState(this.#transform);
+    this.#motionState = new Ammo.btDefaultMotionState(this.#transform);
 
     this.#shape = new Ammo.btSphereShape(size);
-    this.#shape.setMargin(0.5);
+    this.#shape.setMargin(0.05);
 
     this.#inertia = new Ammo.btVector3(0, 0, 0);
 
@@ -73,11 +80,124 @@ class RigidBody {
 
     this.#info = new Ammo.btRigidBodyConstructionInfo(
       mass,
-      this.motionState,
+      this.#motionState,
       this.#shape,
       this.#inertia
     );
     this.body = new Ammo.btRigidBody(this.#info);
+  }
+}
+
+class Physics {
+  #collisionConfig: Ammo.btDefaultCollisionConfiguration;
+  #collisionDispatcher: Ammo.btCollisionDispatcher;
+  #broadphase: Ammo.btDbvtBroadphase;
+  #solver: Ammo.btSequentialImpulseConstraintSolver;
+  physicsWorld: Ammo.btDiscreteDynamicsWorld;
+  reusablePhysicsTransform: Ammo.btTransform = new Ammo.btTransform();
+  rigidBodies: [THREE.Mesh, RigidBody][] = [];
+
+  constructor() {
+    this.#collisionConfig = new Ammo.btDefaultCollisionConfiguration();
+    this.#collisionDispatcher = new Ammo.btCollisionDispatcher(
+      this.#collisionConfig
+    );
+    this.#broadphase = new Ammo.btDbvtBroadphase();
+    this.#solver = new Ammo.btSequentialImpulseConstraintSolver();
+    this.physicsWorld = new Ammo.btDiscreteDynamicsWorld(
+      this.#collisionDispatcher,
+      this.#broadphase,
+      this.#solver,
+      this.#collisionConfig
+    );
+
+    this.physicsWorld.setGravity(new Ammo.btVector3(0, -10, 0));
+  }
+}
+
+class UserControls {
+  gamma: number = 0;
+  beta: number = 0;
+
+  constructor() {
+    const registerMouseEvent = () => {
+      window.addEventListener("mousedown", () => {
+        const move = (evt: MouseEvent) => {
+          this.beta -= evt.movementX * 0.001;
+          this.gamma -= evt.movementY * 0.001;
+        };
+
+        const mouseup = () => {
+          window.removeEventListener("mousemove", move);
+          window.removeEventListener("mouseup", mouseup);
+        };
+        window.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", mouseup);
+      });
+    };
+
+    const registerKeyboardEvent = () => {
+      window.addEventListener("keydown", (evt) => {
+        switch (evt.key) {
+          case "ArrowLeft":
+          case "A": {
+            this.beta += 0.025;
+            break;
+          }
+          case "ArrowRight":
+          case "D": {
+            this.beta -= 0.025;
+            break;
+          }
+          case "ArrowUp":
+          case "W": {
+            this.gamma -= 0.025;
+            break;
+          }
+          case "ArrowDown":
+          case "S": {
+            this.gamma += 0.025;
+            break;
+          }
+        }
+      });
+    };
+    const registerMotionEvent = () => {
+      window.addEventListener(
+        "deviceorientation",
+        ({ beta, gamma }: DeviceOrientationEvent) => {
+          if (beta && gamma) {
+            this.beta = Math.trunc(beta ?? 0);
+            this.gamma = Math.trunc(gamma ?? 0);
+          }
+        },
+        false
+      );
+    };
+
+    registerMouseEvent();
+    registerKeyboardEvent();
+    if (
+      window.DeviceOrientationEvent !== undefined &&
+      typeof (window.DeviceOrientationEvent as any).requestPermission ===
+        "function"
+    ) {
+      (window.DeviceOrientationEvent as any)
+        .requestPermission()
+        .then((response: any) => {
+          if (response == "granted") {
+            registerMotionEvent();
+          }
+        })
+        .catch((error: any) => {
+          console.error(
+            "THREE.DeviceOrientationControls: Unable to use DeviceOrientation API:",
+            error
+          );
+        });
+    } else {
+      registerMotionEvent();
+    }
   }
 }
 
@@ -86,38 +206,94 @@ class LabyrinthGame {
   #camera: THREE.PerspectiveCamera;
   #scene: THREE.Scene;
 
-  #collisionConfig: Ammo.btDefaultCollisionConfiguration;
-  #collisionDispatcher: Ammo.btCollisionDispatcher;
-  #broadphase: Ammo.btDbvtBroadphase;
-  #solver: Ammo.btSequentialImpulseConstraintSolver;
-  #physicsWorld: Ammo.btDiscreteDynamicsWorld;
-  #tempPhysicsTransform: Ammo.btTransform;
-  #rigidBodies: [THREE.Mesh, RigidBody][] = [];
-
-  #beta: number = 0;
-  #gamma: number = 0;
+  #clock: THREE.Clock;
   #ground: [THREE.Mesh, RigidBody];
 
-  #previousRaf: number | null;
+  #physics: Physics;
+  #userControls: UserControls;
+  constructor(physics: Physics, userControls: UserControls) {
+    this.#physics = physics;
+    this.#userControls = userControls;
+    this.initializeSelf();
+  }
 
-  constructor() {}
+  #debugOrbitControls(camera: Camera, renderer: Renderer) {
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 20, 0);
+    controls.update();
+  }
 
-  initialize() {
-    this.#collisionConfig = new Ammo.btDefaultCollisionConfiguration();
-    this.#collisionDispatcher = new Ammo.btCollisionDispatcher(
-      this.#collisionConfig
+  initializeSelf() {
+    this.#clock = new THREE.Clock();
+    this.#setupScene();
+    this.#setupRenderer();
+    window.addEventListener("resize", this.#onWindowResize);
+    this.#setupCamera();
+    this.#setupLight(this.#scene);
+    this.#setupLabyrinthMap(this.#physics, this.#scene);
+    this.#setupBall(this.#physics, this.#scene);
+
+    // this.#debugOrbitControls(this.#camera, this.#renderer);
+
+    this.#tick();
+  }
+
+  #setupScene() {
+    this.#scene = new THREE.Scene();
+    this.#scene.background = new THREE.Color("#fff");
+  }
+
+  #setupBall(physics: Physics, scene: Scene) {
+    const STATE = { DISABLE_DEACTIVATION: 4 };
+    const FLAGS = { CF_KINEMATIC_OBJECT: 2 };
+    const sphere = new THREE.Mesh(
+      new THREE.SphereBufferGeometry(4),
+      new THREE.MeshPhongMaterial({ color: 0xff0505 })
     );
-    this.#broadphase = new Ammo.btDbvtBroadphase();
-    this.#solver = new Ammo.btSequentialImpulseConstraintSolver();
-    this.#physicsWorld = new Ammo.btDiscreteDynamicsWorld(
-      this.#collisionDispatcher,
-      this.#broadphase,
-      this.#solver,
-      this.#collisionConfig
+    sphere.position.set(0, 100, 0);
+    sphere.castShadow = true;
+    sphere.receiveShadow = true;
+    const spherePhysics = new RigidBody();
+    spherePhysics.createSphere(1, sphere.position, 4);
+    spherePhysics.setRestitution(0);
+    spherePhysics.setFriction(0.1);
+    spherePhysics.setRollingFriction(0.1);
+    spherePhysics.body.setActivationState(STATE.DISABLE_DEACTIVATION);
+    //spherePhysics.body.setCollisionFlags(FLAGS.CF_KINEMATIC_OBJECT);
+    physics.physicsWorld.addRigidBody(spherePhysics.body);
+    physics.rigidBodies.push([sphere, spherePhysics]);
+    scene.add(sphere);
+  }
+
+  #setupLabyrinthMap(physics: Physics, scene: Scene) {
+    const ground = new THREE.Mesh(
+      new THREE.BoxGeometry(300, 10, 300),
+      new THREE.MeshStandardMaterial({ color: 0xfffffff })
     );
+    const FLAGS = { CF_KINEMATIC_OBJECT: 2 };
+    ground.castShadow = false;
+    ground.receiveShadow = true;
 
-    this.#physicsWorld.setGravity(new Ammo.btVector3(0, -10, 0));
+    // this.#ground.rotation.x = 0.05;
+    // ground.rotation.z = 0.03;
+    const groundPhysics = new RigidBody();
+    groundPhysics.createBox(
+      0,
+      ground.position,
+      ground.quaternion,
+      new THREE.Vector3(300, 10, 300)
+    );
+    groundPhysics.setRestitution(0.99);
+    //this.#physics.rigidBodies.push([ground, groundPhysics]);
+    this.#ground = [ground, groundPhysics];
 
+    physics.physicsWorld.addRigidBody(groundPhysics.body);
+    // groundPhysics.body.setActivationState(STATE.DISABLE_DEACTIVATION);
+    groundPhysics.body.setCollisionFlags(FLAGS.CF_KINEMATIC_OBJECT);
+    scene.add(ground);
+  }
+
+  #setupRenderer() {
     this.#renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 
     this.#renderer.shadowMap.enabled = true;
@@ -126,20 +302,27 @@ class LabyrinthGame {
     this.#renderer.outputEncoding = THREE.sRGBEncoding;
     this.#renderer.setPixelRatio(window.devicePixelRatio);
     this.#renderer.setSize(window.innerWidth, window.innerHeight);
-
     document.body.appendChild(this.#renderer.domElement);
+  }
 
-    window.addEventListener("resize", this.#onWindowResize);
-
+  #setupCamera() {
     const fov = 60;
     const aspect = 1920 / 1080;
     const near = 1.0;
     const far = 1000.0;
 
     this.#camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-    this.#camera.position.set(0, 250, 0);
+    this.#camera.position.set(40, 250, 0);
+    this.#camera.lookAt(new THREE.Vector3(0, 0, 0));
+  }
 
-    const directionalLight = new THREE.DirectionalLight(0xfffffffff);
+  #setupLight(scene: Scene) {
+    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.1);
+    hemisphereLight.color.setHSL(0.6, 0.6, 0.6);
+    hemisphereLight.groundColor.setHSL(0.1, 1, 0.4);
+    hemisphereLight.position.set(0, 50, 0);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff);
     directionalLight.position.set(0, 125, 0);
     directionalLight.target.position.set(0, 0, 0);
     directionalLight.castShadow = true;
@@ -153,63 +336,8 @@ class LabyrinthGame {
     directionalLight.shadow.camera.top = 200;
     directionalLight.shadow.camera.bottom = -200;
 
-    const ambientLight = new THREE.AmbientLight(0x101010);
-
-    const controls = new OrbitControls(this.#camera, this.#renderer.domElement);
-    controls.target.set(0, 20, 0);
-    controls.update();
-
-    const ground = new THREE.Mesh(
-      new THREE.BoxGeometry(200, 1, 200),
-      new THREE.MeshStandardMaterial({ color: 0xfffffff })
-    );
-
-    ground.castShadow = false;
-    ground.receiveShadow = true;
-
-    // this.#ground.rotation.x = 0.05;
-    // ground.rotation.z = 0.03;
-    const groundPhysics = new RigidBody();
-    groundPhysics.createBox(
-      0,
-      ground.position,
-      ground.quaternion,
-      new THREE.Vector3(200, 1, 200)
-    );
-    groundPhysics.setRestitution(0.99);
-    //this.#rigidBodies.push([ground, groundPhysics]);
-    this.#ground = [ground, groundPhysics];
-    this.#physicsWorld.addRigidBody(groundPhysics.body);
-
-    const sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(4),
-      new THREE.MeshStandardMaterial({
-        metalness: 1, // between 0 and 1
-        roughness: 0.5,
-        color: "white",
-      })
-    );
-    sphere.position.set(0, 50, 0);
-    sphere.castShadow = true;
-    sphere.receiveShadow = true;
-    const spherePhysics = new RigidBody();
-    spherePhysics.createSphere(1, sphere.position, 4);
-    spherePhysics.setRestitution(0);
-    spherePhysics.setFriction(0.1);
-    spherePhysics.setRollingFriction(0.1);
-    this.#physicsWorld.addRigidBody(spherePhysics.body);
-    this.#rigidBodies.push([sphere, spherePhysics]);
-
-    this.#scene = new THREE.Scene();
-    this.#scene.background = new THREE.Color("#fff");
-    this.#scene.add(ground);
-    this.#scene.add(sphere);
-    this.#scene.add(directionalLight);
-    this.#scene.add(ambientLight);
-    this.#tempPhysicsTransform = new Ammo.btTransform();
-
-    this.#deviceMotion();
-    this.#raf();
+    scene.add(hemisphereLight);
+    scene.add(directionalLight);
   }
 
   #onWindowResize() {
@@ -218,70 +346,24 @@ class LabyrinthGame {
     this.#renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
-  #debug<T>(text: T) {
-    const debug = document.querySelector("#debug");
+  #tick() {
+    requestAnimationFrame(() => {
+      let deltaTime = this.#clock.getDelta();
 
-    debug!.innerHTML = JSON.stringify(text ?? "NOTHING");
-    console.info(text);
-  }
-
-  #raf() {
-    requestAnimationFrame((t) => {
-      if (this.#previousRaf == null) this.#previousRaf = t;
       this.#onWindowResize();
-
-      this.#tiltGround();
-      this.#simulate(this.#previousRaf);
+      const [ground] = this.#ground;
+      ground.rotation.z = this.#userControls.gamma;
+      ground.rotation.x = this.#userControls.beta;
+      this.#simulate(deltaTime);
       this.#renderer.render(this.#scene, this.#camera);
-      this.#raf();
+      this.#tick();
     });
   }
 
-  #tiltGround() {
-    const [ground, groundPhysics] = this.#ground;
-  }
-
-  #deviceMotion() {
-    const registerEvent = () => {
-      window.addEventListener(
-        "deviceorientation",
-        ({ beta, gamma }) => {
-          this.#beta = Math.trunc(beta ?? 0);
-          this.#gamma = Math.trunc(gamma ?? 0);
-          this.#debug({ beta: this.#beta, gamma: this.#gamma });
-        },
-        false
-      );
-    };
-
-    if (
-      window.DeviceOrientationEvent !== undefined &&
-      typeof (window.DeviceOrientationEvent as any).requestPermission ===
-        "function"
-    ) {
-      (window.DeviceOrientationEvent as any)
-        .requestPermission()
-        .then((response: any) => {
-          if (response == "granted") {
-            registerEvent();
-          }
-        })
-        .catch((error: any) => {
-          console.error(
-            "THREE.DeviceOrientationControls: Unable to use DeviceOrientation API:",
-            error
-          );
-        });
-    } else {
-      registerEvent();
-    }
-  }
-
-  #simulate(timeElapsed: number) {
-    const timeElapsedInSeconds = timeElapsed * 0.001;
+  #simulate(deltaTime: number) {
     const [ground, groundPhysics] = this.#ground;
 
-    ground.rotation.z = this.#gamma * 0.01;
+    ground.rotation.z = this.#userControls.gamma;
 
     const quat = new THREE.Quaternion();
     ground.getWorldQuaternion(quat);
@@ -289,25 +371,19 @@ class LabyrinthGame {
     const quat3 = new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w);
     tr.setRotation(quat3);
     groundPhysics.body.setWorldTransform(tr);
+    this.#physics.physicsWorld.stepSimulation(deltaTime * 4, 10);
+    for (let i = 0; i < this.#physics.rigidBodies.length; i++) {
+      let [objThree, objAmmo] = this.#physics.rigidBodies[i];
 
-    for (let i = 0; i < this.#rigidBodies.length; ++i) {
-      this.#rigidBodies[i][1].motionState.getWorldTransform(
-        this.#tempPhysicsTransform
-      );
-      const pos = this.#tempPhysicsTransform.getOrigin();
-      const quat = this.#tempPhysicsTransform.getRotation();
-      const pos3 = new THREE.Vector3(pos.x(), pos.y(), pos.z());
-      const quat3 = new THREE.Quaternion(
-        quat.x(),
-        quat.y(),
-        quat.z(),
-        quat.w()
-      );
-
-      this.#rigidBodies[i][0].position.copy(pos3);
-      this.#rigidBodies[i][0].quaternion.copy(quat3);
+      let ms = objAmmo.body.getMotionState();
+      if (ms) {
+        ms.getWorldTransform(this.#physics.reusablePhysicsTransform);
+        let p = this.#physics.reusablePhysicsTransform.getOrigin();
+        let q = this.#physics.reusablePhysicsTransform.getRotation();
+        objThree.position.set(p.x(), p.y(), p.z());
+        objThree.quaternion.set(q.x(), q.y(), q.z(), q.w());
+      }
     }
-    this.#physicsWorld.stepSimulation(timeElapsedInSeconds, 10);
   }
 }
 
@@ -315,7 +391,6 @@ let game = null;
 
 window.addEventListener("DOMContentLoaded", async () => {
   Ammo(Ammo).then(() => {
-    game = new LabyrinthGame();
-    game.initialize();
+    game = new LabyrinthGame(new Physics(), new UserControls());
   });
 });
