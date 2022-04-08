@@ -1,5 +1,6 @@
 ///<reference path="./lib/ammo.wasm.d.ts"/>
 
+import { AmmoPhysics, ExtendedMesh } from "@enable3d/ammo-physics";
 import * as THREE from "three";
 import { Camera, Quaternion, Renderer, Scene, Vector3 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
@@ -207,28 +208,22 @@ class LabyrinthGame {
   #scene: THREE.Scene;
 
   #clock: THREE.Clock;
-  #ground: [THREE.Mesh, RigidBody];
+  #ground: [THREE.Object3D, RigidBody];
 
   #physics: Physics;
+  #physics2: AmmoPhysics;
   #userControls: UserControls;
-  constructor(physics: Physics, userControls: UserControls) {
-    this.#physics = physics;
+  constructor(userControls: UserControls) {
+    //this.#physics = physics;
     this.#userControls = userControls;
-    this.initializeSelf();
-  }
-
-  #debugOrbitControls(camera: Camera, renderer: Renderer) {
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 20, 0);
-    controls.update();
-  }
-
-  initializeSelf() {
     this.#clock = new THREE.Clock();
     this.#setupScene();
     this.#setupRenderer();
+    this.#physics2 = new AmmoPhysics(this.#scene);
+    this.#physics2.debug?.enable();
     window.addEventListener("resize", this.#onWindowResize);
     this.#setupCamera();
+
     this.#setupLight(this.#scene);
     this.#setupLabyrinthMap(this.#physics, this.#scene);
     this.#setupBall(this.#physics, this.#scene);
@@ -236,6 +231,12 @@ class LabyrinthGame {
     // this.#debugOrbitControls(this.#camera, this.#renderer);
 
     this.#tick();
+  }
+
+  #debugOrbitControls(camera: Camera, renderer: Renderer) {
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 20, 0);
+    controls.update();
   }
 
   #setupScene() {
@@ -246,51 +247,84 @@ class LabyrinthGame {
   #setupBall(physics: Physics, scene: Scene) {
     const STATE = { DISABLE_DEACTIVATION: 4 };
     const FLAGS = { CF_KINEMATIC_OBJECT: 2 };
-    const sphere = new THREE.Mesh(
+    const sphere = new ExtendedMesh(
       new THREE.SphereBufferGeometry(4),
       new THREE.MeshPhongMaterial({ color: 0xff0505 })
     );
     sphere.position.set(0, 100, 0);
     sphere.castShadow = true;
     sphere.receiveShadow = true;
-    const spherePhysics = new RigidBody();
-    spherePhysics.createSphere(1, sphere.position, 4);
-    spherePhysics.setRestitution(0);
-    spherePhysics.setFriction(0.1);
-    spherePhysics.setRollingFriction(0.1);
-    spherePhysics.body.setActivationState(STATE.DISABLE_DEACTIVATION);
-    //spherePhysics.body.setCollisionFlags(FLAGS.CF_KINEMATIC_OBJECT);
-    physics.physicsWorld.addRigidBody(spherePhysics.body);
-    physics.rigidBodies.push([sphere, spherePhysics]);
+    // const spherePhysics = new RigidBody();
+    // spherePhysics.createSphere(1, sphere.position, 4);
+    // spherePhysics.setRestitution(0);
+    // spherePhysics.setFriction(0.1);
+    // spherePhysics.setRollingFriction(0.1);
+    // spherePhysics.body.setActivationState(STATE.DISABLE_DEACTIVATION);
+    // //spherePhysics.body.setCollisionFlags(FLAGS.CF_KINEMATIC_OBJECT);
+    // physics.physicsWorld.addRigidBody(spherePhysics.body);
+    // physics.rigidBodies.push([sphere, spherePhysics]);
+
+    this.#physics2.add.existing(sphere as any, { shape: "hacd" });
     scene.add(sphere);
   }
 
   #setupLabyrinthMap(physics: Physics, scene: Scene) {
-    const ground = new THREE.Mesh(
-      new THREE.BoxGeometry(300, 10, 300),
-      new THREE.MeshStandardMaterial({ color: 0xfffffff })
+    // Rectangle
+    const rectLength = 200;
+    const rectWidth = 120;
+    const rectShape = new THREE.Shape()
+      .moveTo(0, 0)
+      .lineTo(rectLength, 0)
+      .lineTo(rectLength, rectWidth)
+      .lineTo(0, rectWidth)
+      .lineTo(0, 0);
+    // Holes
+    const hole = new THREE.Path()
+      .moveTo(144, 60)
+      .absarc(134, 60, 10, 0, Math.PI * 2, true);
+    rectShape.holes.push(hole);
+    const hole2 = new THREE.Path()
+      .moveTo(77, 60)
+      .absarc(67, 60, 10, 0, Math.PI * 2, true);
+    rectShape.holes.push(hole2);
+    const extrudeSettings = {
+      depth: 20,
+      bevelEnabled: true,
+      bevelSegments: 2,
+      steps: 2,
+      bevelSize: 1,
+      bevelThickness: 1,
+    };
+    const geometry = new THREE.ExtrudeBufferGeometry(
+      rectShape,
+      extrudeSettings
     );
-    const FLAGS = { CF_KINEMATIC_OBJECT: 2 };
-    ground.castShadow = false;
+    geometry.center();
+    geometry.rotateX(Math.PI * -0.5);
+    const material = new THREE.MeshPhongMaterial({
+      color: 0x222222,
+    });
+    const ground = new ExtendedMesh(geometry, material);
     ground.receiveShadow = true;
-
-    // this.#ground.rotation.x = 0.05;
-    // ground.rotation.z = 0.03;
-    const groundPhysics = new RigidBody();
-    groundPhysics.createBox(
-      0,
-      ground.position,
-      ground.quaternion,
-      new THREE.Vector3(300, 10, 300)
-    );
-    groundPhysics.setRestitution(0.99);
-    //this.#physics.rigidBodies.push([ground, groundPhysics]);
-    this.#ground = [ground, groundPhysics];
-
-    physics.physicsWorld.addRigidBody(groundPhysics.body);
-    // groundPhysics.body.setActivationState(STATE.DISABLE_DEACTIVATION);
-    groundPhysics.body.setCollisionFlags(FLAGS.CF_KINEMATIC_OBJECT);
     scene.add(ground);
+    //this.#physics2.add.existing(ground as any, { shape: "hacd" });
+    // ground.body.setCollisionFlags(2);
+
+    // const groundPhysics = new RigidBody();
+    // groundPhysics.createBox(
+    //   0,
+    //   ground.position,
+    //   ground.quaternion,
+    //   new THREE.Vector3(300, 10, 300)
+    // );
+    // groundPhysics.setRestitution(0.99);
+    // //this.#physics.rigidBodies.push([ground, groundPhysics]);
+    // this.#ground = [ground, groundPhysics];
+
+    // physics.physicsWorld.addRigidBody(groundPhysics.body);
+    // // groundPhysics.body.setActivationState(STATE.DISABLE_DEACTIVATION);
+
+    // groundPhysics.body.setCollisionFlags(2);
   }
 
   #setupRenderer() {
@@ -351,10 +385,10 @@ class LabyrinthGame {
       let deltaTime = this.#clock.getDelta();
 
       this.#onWindowResize();
-      const [ground] = this.#ground;
-      ground.rotation.z = this.#userControls.gamma;
-      ground.rotation.x = this.#userControls.beta;
-      this.#simulate(deltaTime);
+      // const [ground] = this.#ground;
+      // ground.rotation.z = this.#userControls.gamma;
+      // ground.rotation.x = this.#userControls.beta;
+      //this.#simulate(deltaTime);
       this.#renderer.render(this.#scene, this.#camera);
       this.#tick();
     });
@@ -389,8 +423,6 @@ class LabyrinthGame {
 
 let game = null;
 
-window.addEventListener("DOMContentLoaded", async () => {
-  Ammo(Ammo).then(() => {
-    game = new LabyrinthGame(new Physics(), new UserControls());
-  });
+Ammo(Ammo).then(() => {
+  game = new LabyrinthGame(new UserControls());
 });

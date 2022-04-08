@@ -1,18 +1,28 @@
 lockfileVersion: 5.3
 
 specifiers:
+  '@enable3d/ammo-physics': ^0.25.1
+  '@enable3d/three-graphics': ^0.25.1
+  '@types/matter-js': ^0.17.7
   '@types/stats.js': ^0.17.0
   '@types/three': ^0.139.0
   ammojs-typed: ^1.0.6
+  enable3d: ^0.25.1
+  matter-js: ^0.18.0
   stats.js: ^0.17.0
   three: ^0.139.2
   typescript: ^4.5.4
   vite: ^2.9.0
 
 dependencies:
+  '@enable3d/ammo-physics': 0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7
+  '@enable3d/three-graphics': 0.25.1_1ece8a8b3b8a8559ea49a325aa05d4de
+  '@types/matter-js': 0.17.7
   '@types/stats.js': 0.17.0
   '@types/three': 0.139.0
   ammojs-typed: 1.0.6
+  enable3d: 0.25.1_1ece8a8b3b8a8559ea49a325aa05d4de
+  matter-js: 0.18.0
   stats.js: 0.17.0
   three: 0.139.2
 
@@ -22,6 +32,63 @@ devDependencies:
 
 packages:
 
+  /@enable3d/ammo-physics/0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7:
+    resolution: {integrity: sha512-7shki3p7ivIWNoM9SaFKOCxY0e46c1exvACeDXAeC63Rgm4OuK5SFEVBKjAPuBsFF0FYmJZOvOmNfLYKvWLBLA==}
+    peerDependencies:
+      '@types/three': ~0.137.0
+      three: ~0.137.4
+    dependencies:
+      '@enable3d/common': 0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7
+      '@enable3d/three-wrapper': 0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7
+      '@types/three': 0.139.0
+      '@yandeu/events': 0.0.5
+      three: 0.139.2
+    dev: false
+
+  /@enable3d/common/0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7:
+    resolution: {integrity: sha512-o+lkFxl5js1UICml01fBPYO5gc6A1KbCi2udTa8EGlRZPKgrX8Oo0SndgQe2yXwYE0nM64u5wYKnMQqeVIDdFQ==}
+    dependencies:
+      '@enable3d/three-wrapper': 0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7
+      '@yandeu/events': 0.0.5
+    transitivePeerDependencies:
+      - '@types/three'
+      - three
+    dev: false
+
+  /@enable3d/three-graphics/0.25.1_1ece8a8b3b8a8559ea49a325aa05d4de:
+    resolution: {integrity: sha512-++FV6aYcWlmDhwwVFGCBmTig8HdGyLxXkCYHiCI18gpP+IFa1SfpybWvyg3IPQB3ybt6GFG0/+KhmcZ+ojIknA==}
+    peerDependencies:
+      '@types/matter-js': 0.17.6
+      '@types/three': ~0.137.0
+      matter-js: 0.17.1
+      poly-decomp: ^0.3.0
+      three: ~0.137.4
+    dependencies:
+      '@enable3d/ammo-physics': 0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7
+      '@enable3d/common': 0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7
+      '@enable3d/three-wrapper': 0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7
+      '@types/matter-js': 0.17.7
+      '@types/three': 0.139.0
+      '@yandeu/events': 0.0.5
+      '@yandeu/tap': 0.0.3
+      matter-js: 0.18.0
+      three: 0.139.2
+    dev: false
+
+  /@enable3d/three-wrapper/0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7:
+    resolution: {integrity: sha512-Q6ivU+chm9hFszFSPBzs9AAFnc91x6rs0uF1iv88Y02CgD9eZgFo1CcGtYzT7dMwC+OgcLeLjjkqCeUCv0jt8Q==}
+    peerDependencies:
+      '@types/three': ~0.137.0
+      three: ~0.137.4
+    dependencies:
+      '@types/three': 0.139.0
+      three: 0.139.2
+    dev: false
+
+  /@types/matter-js/0.17.7:
+    resolution: {integrity: sha512-LHx3Kf1vY68wEgSAuQkMShfGxB9YVKtcFYqPTMAcmUCnHuvcPkfnlbveMkH8xG/s1EIYcbBVTnUNDV/CA5B2RA==}
+    dev: false
+
   /@types/stats.js/0.17.0:
     resolution: {integrity: sha512-9w+a7bR8PeB0dCT/HBULU2fMqf6BAzvKbxFboYhmDtDkKPiyXYbjoe2auwsXlEFI7CFNMF1dCv3dFH5Poy9R1w==}
     dev: false
@@ -30,8 +97,33 @@ packages:
     resolution: {integrity: sha512-4V/jZhyq7Mv05coUzxL3bz8AuBOSi/1F0RY7ujisHTV0Amy/fnYJ+s7TSJ1/hXjZukSkpuFRgV+wvWUEMbsMbQ==}
     dev: false
 
+  /@yandeu/events/0.0.5:
+    resolution: {integrity: sha512-TUkghSGu0ThcEyAP50WHU/vdQkpt9EZyotjZzG8KirR+VI5o7Rp5wabcGru62JNy+awMR8Voy+kFzhNkC/1E6A==}
+    dev: false
+
+  /@yandeu/tap/0.0.3:
+    resolution: {integrity: sha512-GIStEHmboHVbs6ghcRxkO5NVdZtRCsf1mkKI0gvzc21uj5qGlGSCD/Eaax98/c6Mu9+n2lkTYbTwuBbg2vzuQw==}
+    dependencies:
+      '@yandeu/events': 0.0.5
+    dev: false
+
   /ammojs-typed/1.0.6:
     resolution: {integrity: sha512-ut/tD0m5eEdlJ5KK97ma6SIEGZ4FN3AJTSVz8wl6C4EtnpVQdP70lOwgDMJKsHjTohxc2/xEZl6yJfMBZNlQ5w==}
+    dev: false
+
+  /enable3d/0.25.1_1ece8a8b3b8a8559ea49a325aa05d4de:
+    resolution: {integrity: sha512-0nMsJwmU1p36IUjKahtpgrCh3dCHb8AYSk1G8XGSUQ6BNe2BpxId9cMhRXwM+8F65MVP4MuOl6uS3wSuRsOrfg==}
+    dependencies:
+      '@enable3d/ammo-physics': 0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7
+      '@enable3d/common': 0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7
+      '@enable3d/three-graphics': 0.25.1_1ece8a8b3b8a8559ea49a325aa05d4de
+      '@enable3d/three-wrapper': 0.25.1_8153fc8b5d59e61c1f2ee750c700dfa7
+    transitivePeerDependencies:
+      - '@types/matter-js'
+      - '@types/three'
+      - matter-js
+      - poly-decomp
+      - three
     dev: false
 
   /esbuild-android-64/0.14.34:
@@ -266,6 +358,10 @@ packages:
     dependencies:
       has: 1.0.3
     dev: true
+
+  /matter-js/0.18.0:
+    resolution: {integrity: sha512-/ZVem4WygUnbmo/iE4oHZpZS97btfBtYy5Iwn1396vUZU7YhgVEN8J4UWwfZwY1ZqoTYlPgjvSw9WXauuXL0mg==}
+    dev: false
 
   /nanoid/3.3.2:
     resolution: {integrity: sha512-CuHBogktKwpm5g2sRgv83jEy2ijFzBwMoYA60orPDR7ynsLijJDqgsi4RDGj3OJpy3Ieb+LYwiRmIOGyytgITA==}

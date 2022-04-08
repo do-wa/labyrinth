@@ -12,9 +12,14 @@
     "vite": "^2.9.0"
   },
   "dependencies": {
+    "@enable3d/ammo-physics": "^0.25.1",
+    "@enable3d/three-graphics": "^0.25.1",
+    "@types/matter-js": "^0.17.7",
     "@types/stats.js": "^0.17.0",
     "@types/three": "^0.139.0",
     "ammojs-typed": "^1.0.6",
+    "enable3d": "^0.25.1",
+    "matter-js": "^0.18.0",
     "stats.js": "^0.17.0",
     "three": "^0.139.2"
   }
