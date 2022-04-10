@@ -3,7 +3,11 @@
 import { AmmoPhysics, ExtendedMesh } from "@enable3d/ammo-physics";
 import * as THREE from "three";
 import { Scene } from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+//import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import "./style.css";
+
+const loader = new GLTFLoader();
 
 function setupCamera() {
   const fov = 60;
@@ -12,7 +16,7 @@ function setupCamera() {
   const far = 1000.0;
 
   const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-  camera.position.set(40, 350, 0);
+  camera.position.set(40, 250, 0);
   camera.lookAt(new THREE.Vector3(0, 0, 0));
 
   return camera;
@@ -57,8 +61,8 @@ function setupRenderer() {
 }
 
 function createLabyrinthMap(physics: AmmoPhysics) {
-  const rectLength = 200;
-  const rectWidth = 120;
+  const rectLength = 300;
+  const rectWidth = 600;
   const rectShape = new THREE.Shape()
     .moveTo(0, 0)
     .lineTo(rectLength, 0)
@@ -69,13 +73,14 @@ function createLabyrinthMap(physics: AmmoPhysics) {
   const hole = new THREE.Path()
     .moveTo(144, 60)
     .absarc(134, 60, 10, 0, Math.PI * 2, true);
+
   rectShape.holes.push(hole);
   const hole2 = new THREE.Path()
     .moveTo(77, 60)
     .absarc(67, 60, 10, 0, Math.PI * 2, true);
   rectShape.holes.push(hole2);
   const extrudeSettings = {
-    depth: 20,
+    depth: 10,
     bevelEnabled: true,
     bevelSegments: 2,
     steps: 2,
@@ -91,9 +96,98 @@ function createLabyrinthMap(physics: AmmoPhysics) {
   const ground = new ExtendedMesh(geometry, material);
   ground.receiveShadow = true;
 
-  physics.add.existing(ground as any, { mass: 0 });
+  physics.add.existing(ground as any, { mass: 1 });
   ground.body.setCollisionFlags(2);
+
   return ground;
+}
+
+function createUserControls() {
+  let userInput = {
+    beta: 0,
+    gamma: 0,
+  };
+
+  const registerMouseEvent = () => {
+    window.addEventListener("mousedown", () => {
+      const move = (evt: MouseEvent) => {
+        userInput.beta -= evt.movementX * 0.001;
+        userInput.gamma -= evt.movementY * 0.001;
+      };
+
+      const mouseup = () => {
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", mouseup);
+      };
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", mouseup);
+    });
+  };
+
+  const registerKeyboardEvent = () => {
+    window.addEventListener("keydown", (evt) => {
+      switch (evt.key) {
+        case "ArrowLeft":
+        case "A": {
+          userInput.beta += 0.025;
+          break;
+        }
+        case "ArrowRight":
+        case "D": {
+          userInput.beta -= 0.025;
+          break;
+        }
+        case "ArrowUp":
+        case "W": {
+          userInput.gamma -= 0.025;
+          break;
+        }
+        case "ArrowDown":
+        case "S": {
+          userInput.gamma += 0.025;
+          break;
+        }
+      }
+    });
+  };
+  const registerMotionEvent = () => {
+    window.addEventListener(
+      "deviceorientation",
+      ({ beta, gamma }: DeviceOrientationEvent) => {
+        if (beta && gamma) {
+          beta = Math.trunc(beta ?? 0);
+          gamma = Math.trunc(gamma ?? 0);
+        }
+      },
+      false
+    );
+  };
+
+  registerMouseEvent();
+  registerKeyboardEvent();
+  if (
+    window.DeviceOrientationEvent !== undefined &&
+    typeof (window.DeviceOrientationEvent as any).requestPermission ===
+      "function"
+  ) {
+    (window.DeviceOrientationEvent as any)
+      .requestPermission()
+      .then((response: any) => {
+        if (response == "granted") {
+          registerMotionEvent();
+        }
+      })
+      .catch((error: any) => {
+        console.error(
+          "THREE.DeviceOrientationControls: Unable to use DeviceOrientation API:",
+          error
+        );
+      });
+  } else {
+    registerMotionEvent();
+  }
+
+  return userInput;
 }
 
 function createSphere(physics: AmmoPhysics) {
@@ -106,6 +200,7 @@ function createSphere(physics: AmmoPhysics) {
   sphere.receiveShadow = true;
 
   physics.add.existing(sphere as any);
+
   sphere.body.setRestitution(0);
   sphere.body.setFriction(0.1);
 
@@ -133,7 +228,7 @@ function LabyrinthGame() {
   setupLight(scene);
 
   // orbit controls
-  new OrbitControls(camera, renderer.domElement);
+  //new OrbitControls(camera, renderer.domElement);
 
   // physics
   const physics = new AmmoPhysics(scene as any);
@@ -147,31 +242,28 @@ function LabyrinthGame() {
   const sphere = createSphere(physics);
   scene.add(sphere);
 
-  const geometry = new THREE.BoxBufferGeometry(20, 20, 20);
-  const material = new THREE.MeshLambertMaterial({ color: 0x00ff00 });
-  const cube = new ExtendedMesh(geometry, material);
-  cube.position.set(25, 25, 20);
-  physics.add.existing(cube as any);
-  cube.body.setCollisionFlags(2);
-  scene.add(cube);
+  // user controls
+  const userInput = createUserControls();
 
   // clock
   const clock = new THREE.Clock();
 
   // loop
   const animate = () => {
-    cube.rotation.z += 0.01;
-    cube.body.needUpdate = true;
-    labyrinthMap.body.needUpdate = true; // this is how you update kinematic bodies
-
-    physics.update(clock.getDelta() * 1000);
+    onWindowResize(camera, renderer);
+    labyrinthMap.rotation.z = userInput.gamma;
+    labyrinthMap.rotation.x = userInput.beta;
+    labyrinthMap.body.needUpdate = true;
+    camera.position.z = sphere.position.z;
+    //camera.lookAt(sphere.position);
+    physics.update(clock.getDelta() * 100000);
     physics.updateDebugger();
 
     // you have to clear and call render twice because there are 2 scenes
     // one 3d scene and one 2d scene
     renderer.clear();
     renderer.render(scene, camera);
-    renderer.clearDepth();
+    //renderer.clearDepth();
 
     requestAnimationFrame(animate);
   };

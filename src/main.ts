@@ -366,8 +366,7 @@ class LabyrinthGame {
     directionalLight.shadow.camera.near = 1.0;
     directionalLight.shadow.camera.far = 500;
     directionalLight.shadow.camera.left = 200;
-    directionalLight.shadow.camera.right = -200;
-    directionalLight.shadow.camera.top = 200;
+    directionalLwwght.shadow.camera.top = 200;
     directionalLight.shadow.camera.bottom = -200;
 
     scene.add(hemisphereLight);
