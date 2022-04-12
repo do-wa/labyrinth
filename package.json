@@ -7,20 +7,20 @@
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
+  "dependencies": {
+    "@react-three/cannon": "^6.2.0",
+    "@react-three/drei": "^9.4.2",
+    "@react-three/fiber": "^8.0.10",
+    "react": "18",
+    "react-dom": "18",
+    "three": "^0.139.2"
+  },
   "devDependencies": {
+    "@types/react": "18",
+    "@types/react-dom": "18",
+    "@types/three": "^0.139.0",
+    "@vitejs/plugin-react": "^1.0.7",
     "typescript": "^4.5.4",
     "vite": "^2.9.0"
-  },
-  "dependencies": {
-    "@enable3d/ammo-physics": "^0.25.1",
-    "@enable3d/three-graphics": "^0.25.1",
-    "@types/matter-js": "^0.17.7",
-    "@types/stats.js": "^0.17.0",
-    "@types/three": "^0.139.0",
-    "ammojs-typed": "^1.0.6",
-    "enable3d": "^0.25.1",
-    "matter-js": "^0.18.0",
-    "stats.js": "^0.17.0",
-    "three": "^0.139.2"
   }
 }
